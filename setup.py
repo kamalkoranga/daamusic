@@ -1,10 +1,9 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="music_cli",
-    version="0.0.1",
-    description="A simple command-line music player",
-    long_description=open('README.md').read(),
+    name="klkamusic_cli",
+    version="0.1",
+    description="A simple command-line music player for developers, that is built using yt-dlp and rich.",
     author="Klka",
     author_email="klka@duck.com",
     url="https://github.com/kamalkoranga/music_cli.git",
@@ -15,7 +14,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "music_cli=MUSIC_CLI.music_cli:main",
+            "klkamusic_cli=KLKAMUSIC_CLI.klkamusic_cli:main",
         ],
     },
     classifiers=[
@@ -23,5 +22,4 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.7",
 )
