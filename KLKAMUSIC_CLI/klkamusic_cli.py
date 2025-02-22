@@ -1,9 +1,40 @@
 import os
+import shutil
+import platform
 import asyncio
 import yt_dlp
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.table import Table
+
+
+def install_mpv():
+    system = platform.system()
+    if system == "Windows":
+        print("Downloading MPV for Windows...")
+        mpv_installer = "mpv-setup.exe"
+        os.system(f'curl -Lo {mpv_installer} https://sourceforge.net/projects/mpv-player-windows/files/latest/download')
+        os.system(f'start /wait {mpv_installer} /S')  # Silent install
+        os.remove(mpv_installer)
+    
+    elif system == "Darwin":  # macOS
+        print("Installing MPV using Homebrew...")
+        os.system("brew install mpv")
+    
+    elif system == "Linux":
+        print("Installing MPV for Linux...")
+        os.system("sudo apt update && sudo apt install -y mpv || sudo pacman -S --noconfirm mpv || sudo dnf install -y mpv")
+    
+    else:
+        print("Unsupported OS. Please install MPV manually.")
+        exit(1)
+
+def check_mpv():
+    if not shutil.which("mpv"):
+        print("MPV is not installed. Installing now...")
+        install_mpv()
+    else:
+        print("MPV is already installed.")
 
 def play_song(song_url):
     os.system(f"mpv --no-video {song_url}")
@@ -77,6 +108,7 @@ async def search_and_play(song_name):
 
 def main():
     os.system("cls" if os.name == "nt" else "clear")
+    check_mpv()
     console = Console()
     song = Prompt.ask("Enter song name")
     try:
