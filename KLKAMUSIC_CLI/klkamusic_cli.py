@@ -1,4 +1,5 @@
 import os
+import subprocess
 import shutil
 import platform
 import asyncio
@@ -12,10 +13,11 @@ def install_mpv():
     system = platform.system()
     if system == "Windows":
         print("Downloading MPV for Windows...")
-        mpv_installer = "mpv-setup.exe"
-        os.system(f'curl -Lo {mpv_installer} https://sourceforge.net/projects/mpv-player-windows/files/latest/download')
-        os.system(f'start /wait {mpv_installer} /S')  # Silent install
-        os.remove(mpv_installer)
+        try:
+            subprocess.run(["cmd.exe", "/c", "updater.bat"], check=True)
+            print("Batch file executed successfully.")
+        except subprocess.CalledProcessError as e:
+            print(f"Error executing batch file: {e}")
     
     elif system == "Darwin":  # macOS
         print("Installing MPV using Homebrew...")
