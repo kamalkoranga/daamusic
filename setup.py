@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="klkamusic_cli",
-    version="0.1.2",
+    version="0.1.5",
     description="A simple command-line music player for developers, that is built using yt-dlp and rich.",
     author="Klka",
     author_email="klka@duck.com",
