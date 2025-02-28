@@ -7,6 +7,7 @@ import yt_dlp
 from rich.console import Console
 from rich.prompt import Prompt
 from rich.table import Table
+from .install_script import create_files, run_files
 
 
 def install_mpv():
@@ -14,10 +15,19 @@ def install_mpv():
     if system == "Windows":
         print("Downloading MPV for Windows...")
         try:
-            subprocess.run(["cmd.exe", "/c", "updater.bat"], check=True)
+            create_files()
+            os.system('updater.bat')
             print("Batch file executed successfully.")
         except subprocess.CalledProcessError as e:
             print(f"Error executing batch file: {e}")
+        
+        print("Installing MPV...")
+        try:
+            run_files()
+            print('Successfully installed MPV.')
+        except Exception as e:
+            print(f'Error installing mpv: {e}')
+
     
     elif system == "Darwin":  # macOS
         print("Installing MPV using Homebrew...")
@@ -31,6 +41,7 @@ def install_mpv():
         print("Unsupported OS. Please install MPV manually.")
         exit(1)
 
+
 def check_mpv():
     if not shutil.which("mpv"):
         print("MPV is not installed. Installing now...")
@@ -38,8 +49,10 @@ def check_mpv():
     else:
         print("MPV is already installed.")
 
+
 def play_song(song_url):
     os.system(f"mpv --no-video {song_url}")
+
 
 async def search_and_play(song_name):
     console = Console()
@@ -110,6 +123,7 @@ async def search_and_play(song_name):
 
 def main():
     os.system("cls" if os.name == "nt" else "clear")
+    print("Version: 0.1.5")
     check_mpv()
     console = Console()
     song = Prompt.ask("Enter song name")
