@@ -66,16 +66,13 @@ def add_mpv_to_path():
     # Only add if it's not already in the PATH
     if mpv_dir not in current_path:
         os.environ["PATH"] = mpv_dir + os.pathsep + current_path
-        print(f"Added {mpv_dir} to PATH.")
-    else:
-        print("MPV is already in the PATH.")
+        # print(f"Added {mpv_dir} to PATH.")
 
 
 def check_mpv():
     if not is_mpv_installed():
+        print("MPV is not installed ❌")
         install_mpv()
-    else:
-        print("MPV already installed ✅")
 
     # Add MPV to the PATH
     add_mpv_to_path()
