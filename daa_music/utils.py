@@ -1,32 +1,40 @@
 import os
-import subprocess
 import shutil
-import platform
+import urllib.request
+import zipfile
 import asyncio
-import yt_dlp
-from rich.console import Console
-from rich.prompt import Prompt
+import platform
+from pathlib import Path
+from yt_dlp import YoutubeDL
 from rich.table import Table
-from .install_script import create_files, run_files
+from rich.prompt import Prompt
+from rich.console import Console
 
+
+MPV_DOWNLOAD_URL = "https://github.com/kamalkoranga/music_cli/raw/main/mpv/mpv-x86_64-20250330-git-5ba7ee5.zip"
+INSTALL_DIR = Path.home() / ".cache" / "daa_music" / "mpv"
+MPV_EXE = INSTALL_DIR / "mpv-x86_64-20250330-git-5ba7ee5"
+MPV_ZIP = INSTALL_DIR / "mpv-x86_64-20250330-git-5ba7ee5.zip"
 
 def install_mpv():
     system = platform.system()
     if system == "Windows":
         print("Downloading MPV for Windows...")
-        try:
-            create_files()
-            os.system('updater.bat')
-            print("Batch file executed successfully.")
-        except subprocess.CalledProcessError as e:
-            print(f"Error executing batch file: {e}")
-        
-        print("Installing MPV...")
-        try:
-            run_files()
-            print('Successfully installed MPV.')
-        except Exception as e:
-            print(f'Error installing mpv: {e}')
+        INSTALL_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Download the zip file if it's not already downloaded
+        if not MPV_ZIP.exists() and MPV_EXE:
+            urllib.request.urlretrieve(MPV_DOWNLOAD_URL, MPV_ZIP)
+            print("MPV download complete!")
+
+        # Extract the ZIP file if not already extracted
+        if not MPV_EXE.exists():
+            with zipfile.ZipFile(MPV_ZIP, 'r') as zip_ref:
+                zip_ref.extractall(INSTALL_DIR)
+            print("MPV extraction complete!")
+
+        # Optional: Remove the zip file after extraction
+        MPV_ZIP.unlink()
 
     
     elif system == "Darwin":  # macOS
@@ -42,12 +50,35 @@ def install_mpv():
         exit(1)
 
 
+def is_mpv_installed():
+    if shutil.which("mpv"):
+        return True  # MPV is already in the PATH (installed globally)
+    if MPV_EXE.exists():
+        return True  # MPV is installed locally
+    return False
+
+
+def add_mpv_to_path():
+    """Add the MPV installation directory to the PATH environment variable"""
+    current_path = os.environ.get("PATH", "")
+    mpv_dir = str(INSTALL_DIR / "mpv-x86_64-20250330-git-5ba7ee5")
+
+    # Only add if it's not already in the PATH
+    if mpv_dir not in current_path:
+        os.environ["PATH"] = mpv_dir + os.pathsep + current_path
+        print(f"Added {mpv_dir} to PATH.")
+    else:
+        print("MPV is already in the PATH.")
+
+
 def check_mpv():
-    if not shutil.which("mpv"):
-        print("MPV is not installed. Installing now...")
+    if not is_mpv_installed():
         install_mpv()
     else:
-        print("MPV is already installed.")
+        print("MPV already installed ✅")
+
+    # Add MPV to the PATH
+    add_mpv_to_path()
 
 
 def play_song(song_url):
@@ -77,7 +108,7 @@ async def search_and_play(song_name):
     }
 
     loop = asyncio.get_event_loop()
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+    with YoutubeDL(ydl_opts) as ydl:
 
         results = await loop.run_in_executor(
             None, lambda: ydl.extract_info(f"ytsearch5:{song_name}", download=False)
@@ -119,19 +150,3 @@ async def search_and_play(song_name):
         # os.system(f'start /B mpv --no-video "{url}"')  # run in background
         # os.system(f"mpv --no-video {song_url}")
         play_song(song_url)
-
-
-def main():
-    os.system("cls" if os.name == "nt" else "clear")
-    print("Version: 0.1.5")
-    check_mpv()
-    console = Console()
-    song = Prompt.ask("Enter song name")
-    try:
-        asyncio.run(search_and_play(song))
-    except KeyboardInterrupt:
-        console.print("\n[bold yellow]Exiting...[/bold yellow]")
-
-
-if __name__ == "__main__":
-    main()
