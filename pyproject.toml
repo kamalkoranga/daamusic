@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["daa_music"]
+
+[project]
+name = "daa_music"
+version = "0.0.3"
+description = "A music streaming cli."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "Klka", email = "klka@duck.com" }
+]
+keywords = ["music", "cli", "audio", "tool"]
+dependencies = [
+    "rich==14.0.0",
+    "yt-dlp==2025.3.31",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Multimedia :: Sound/Audio",
+    "Topic :: Utilities",
+    "Environment :: Console",
+]
+
+[project.urls]
+Homepage = "https://github.com/kamalkoranga/daamusic"
+Repository = "https://github.com/kamalkoranga/daamusic"
+
+[project.scripts]
+daamusic = "daa_music.cli:main"
