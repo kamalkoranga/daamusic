@@ -5,7 +5,7 @@ from rich.prompt import Prompt
 from daa_music.utils import check_mpv
 from .utils import search_and_play
 
-VERSION = "0.0.2"
+VERSION = "0.0.3"
 
 
 def main():
