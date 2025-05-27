@@ -11,13 +11,17 @@ from rich.prompt import Prompt
 from rich.console import Console
 import heapq
 import shlex
-
+from collections import Counter
 
 MPV_DOWNLOAD_URL = "https://github.com/kamalkoranga/music_cli/raw/main/mpv/mpv-x86_64-20250330-git-5ba7ee5.zip"
 INSTALL_DIR = Path.home() / ".cache" / "daa_music" / "mpv"
 MPV_EXE = INSTALL_DIR / "mpv-x86_64-20250330-git-5ba7ee5"
 MPV_ZIP = INSTALL_DIR / "mpv-x86_64-20250330-git-5ba7ee5.zip"
 CONFIG_PATH = Path.home() / ".cache" / "daa_music" / "music_dir.txt"
+
+# --- DSA: Play history and next-up queue ---
+play_history = []  # Stack for played songs
+play_counter = Counter()  # Frequency counter for most played
 
 
 class OfflineSong:
@@ -73,23 +77,26 @@ def linear_search_title(songs, keyword):
     return [song for song in songs if keyword.lower() in song.title.lower()]
 
 
-def binary_search_title(songs, target):
-    # Songs must be sorted by title
-    left, right = 0, len(songs) - 1
-    while left <= right:
-        mid = (left + right) // 2
-        if songs[mid].title == target:
-            return mid
-        elif songs[mid].title < target:
-            left = mid + 1
-        else:
-            right = mid - 1
-    return -1
-
-
-def play_offline_song(song_path):
-    safe_path = shlex.quote(song_path)  # Ensure safe handling of paths
+def play_offline_song(song_path, song_title=None):
+    safe_path = shlex.quote(song_path)
     os.system(f"mpv --no-video {safe_path}")
+    if song_title:
+        play_history.append(song_title)
+        play_counter[song_title] += 1
+
+
+def show_top_played(console, n=3):
+    if not play_counter:
+        console.print("[bold yellow]No songs played yet.[/bold yellow]")
+        return
+    table = Table(title=f"Top {n} Most Played Songs")
+    table.add_column("Rank", justify="center", style="cyan")
+    table.add_column("Title", style="magenta")
+    table.add_column("Plays", style="green")
+    for i, (title, count) in enumerate(play_counter.most_common(n), 1):
+        table.add_row(str(i), title, str(count))
+    console.print(table)
+
 
 def play_offline_music():
     console = Console()
@@ -123,7 +130,7 @@ def play_offline_music():
         if len(found) == 1:
             selected_song = found[0]
             console.print(f"[bold blue]Now Playing:[/bold blue] {selected_song.title}")
-            play_offline_song(selected_song.path)
+            play_offline_song(selected_song.path, selected_song.title)
             return
 
     # 5. Display results in a table
@@ -147,10 +154,10 @@ def play_offline_music():
     except ValueError:
         console.print("[bold red]Invalid choice! Playing first song.[/bold red]")
         choice = 0
+        selected_song = found[choice]
+        console.print(f"[bold blue]Now Playing:[/bold blue] {selected_song.title}")
+        play_offline_song(selected_song.path, selected_song.title)
 
-    selected_song = found[choice]
-    console.print(f"[bold blue]Now Playing:[/bold blue] {selected_song.title}")
-    play_offline_song(selected_song.path)
 
 def install_mpv():
     system = platform.system()
@@ -172,11 +179,10 @@ def install_mpv():
         # Optional: Remove the zip file after extraction
         MPV_ZIP.unlink()
 
-    
     elif system == "Darwin":  # macOS
         print("Installing MPV using Homebrew...")
         os.system("brew install mpv")
-    
+
     elif system == "Linux":
         print("Installing MPV for Linux...")
         os.system("sudo apt update && sudo apt install -y mpv || sudo pacman -S --noconfirm mpv || sudo dnf install -y mpv")
