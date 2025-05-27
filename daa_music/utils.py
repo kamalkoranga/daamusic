@@ -119,20 +119,14 @@ def play_offline_music():
         if not found:
             console.print("[bold red]No songs found with that keyword![/bold red]")
             return
-    # 5. Binary search: Exact title (optional)
-    found_sorted = sorted(found, key=lambda s: s.title)
-    if Prompt.ask("Do you want to search for a song by exact title? (y/n)", default="n") == "y":
-        target = Prompt.ask("Enter the exact song title")
-        idx = binary_search_title(found_sorted, target)
-        if idx != -1:
-            selected_song = found_sorted[idx]
-            console.print(f"[bold blue]Now Playing (Binary Search):[/bold blue] {selected_song.title}")
+        # If only one song found, play it directly
+        if len(found) == 1:
+            selected_song = found[0]
+            console.print(f"[bold blue]Now Playing:[/bold blue] {selected_song.title}")
             play_offline_song(selected_song.path)
             return
-        else:
-            console.print("[bold red]Song not found by binary search.[/bold red]")
 
-    # 6. Display results in a table
+    # 5. Display results in a table
     table = Table(title="Offline Songs (Sorted by Size)")
     table.add_column("Index", justify="center", style="cyan")
     table.add_column("Title", style="magenta")
@@ -144,7 +138,7 @@ def play_offline_music():
         table.add_row(str(i + 1), song.title + mark, f"{song.size/1024/1024:.2f}")
     console.print(table)
 
-    # 7. User selects song to play
+    # 6. User selects song to play
     choice = Prompt.ask("Enter the index of the song to play", default="1")
     try:
         choice = int(choice) - 1
