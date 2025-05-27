@@ -3,7 +3,7 @@ import asyncio
 from rich.console import Console
 from rich.prompt import Prompt
 from daa_music.utils import check_mpv
-from .utils import search_and_play
+from .utils import search_and_play, play_offline_music, get_music_directory
 
 VERSION = "0.0.3"
 
@@ -13,13 +13,26 @@ def main():
     print(f"Version: {VERSION}")
     check_mpv()
     console = Console()
-    song = Prompt.ask("Enter song name")
-    try:
-        asyncio.run(search_and_play(song))
-        pass
-    except KeyboardInterrupt:
-        console.print("\n[bold yellow]Exiting...[/bold yellow]")
 
+    while True:
+        console.print("\n[bold cyan]1.[/bold cyan] Search & Play Online")
+        console.print("[bold cyan]2.[/bold cyan] Play Offline Music")
+        console.print("[bold cyan]3.[/bold cyan] Set Offline Music Directory")
+        console.print("[bold cyan]4.[/bold cyan] Exit")
+        choice = Prompt.ask("Choose an option", choices=["1", "2", "3", "4"], default="1")
+
+        if choice == "1":
+            song = Prompt.ask("Enter song name")
+            try:
+                asyncio.run(search_and_play(song))
+            except KeyboardInterrupt:
+                console.print("\n[bold yellow]Exiting...[/bold yellow]")
+        elif choice == "2":
+            play_offline_music()
+        elif choice == "3":
+            get_music_directory(force_prompt=True)
+        else:
+            break
 
 if __name__ == "__main__":
     main()
