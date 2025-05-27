@@ -124,6 +124,8 @@ def play_song_queue_worker():
             break  # Sentinel to stop the thread
         with queue_lock:
             current_song = song
+            play_history.append(song.title)
+            play_counter[song.title] += 1
             current_process = subprocess.Popen(
                 ["mpv", "--no-video", song.path],
                 stdout=subprocess.DEVNULL,
@@ -189,6 +191,21 @@ def play_offline_music():
 
     # 3. Heap: Top 3 largest files
     top3_largest = heapq.nlargest(3, songs, key=lambda s: s.size)
+
+    # 4. Linear search: Find by keyword
+    keyword = Prompt.ask("Enter keyword to search in song titles (leave empty to skip)", default="")
+    found = songs
+    if keyword.strip():
+        found = linear_search_title(songs, keyword)
+        if not found:
+            console.print("[bold red]No songs found with that keyword![/bold red]")
+            return
+        # If only one song found, play it directly
+        if len(found) == 1:
+            selected_song = found[0]
+            console.print(f"[bold blue]Now Playing:[/bold blue] {selected_song.title}")
+            play_offline_song(selected_song.path, selected_song.title)
+            return
 
     while True:
         table = Table(title="Offline Songs (Sorted by Size)")
