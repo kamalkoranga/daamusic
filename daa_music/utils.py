@@ -9,12 +9,154 @@ from yt_dlp import YoutubeDL
 from rich.table import Table
 from rich.prompt import Prompt
 from rich.console import Console
+import heapq
+import shlex
 
 
 MPV_DOWNLOAD_URL = "https://github.com/kamalkoranga/music_cli/raw/main/mpv/mpv-x86_64-20250330-git-5ba7ee5.zip"
 INSTALL_DIR = Path.home() / ".cache" / "daa_music" / "mpv"
 MPV_EXE = INSTALL_DIR / "mpv-x86_64-20250330-git-5ba7ee5"
 MPV_ZIP = INSTALL_DIR / "mpv-x86_64-20250330-git-5ba7ee5.zip"
+CONFIG_PATH = Path.home() / ".cache" / "daa_music" / "music_dir.txt"
+
+
+class OfflineSong:
+    def __init__(self, title, path, size):
+        self.title = title
+        self.path = path
+        self.size = size  # in bytes
+
+    def __lt__(self, other):
+        return self.size < other.size
+
+
+def get_music_directory(force_prompt=False):
+    if CONFIG_PATH.exists() and not force_prompt:
+        with open(CONFIG_PATH) as f:
+            music_dir = f.read().strip()
+        if os.path.isdir(music_dir):
+            return music_dir
+    # Prompt user for directory
+    music_dir = Prompt.ask("Enter path to your music directory")
+    while not os.path.isdir(music_dir):
+        music_dir = Prompt.ask("Invalid path. Enter path to your music directory")
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "w") as f:
+        f.write(music_dir)
+    return music_dir
+
+
+def scan_music_folder(folder):
+    # DFS traversal to find all music files
+    songs = []
+    for root, dirs, files in os.walk(folder):
+        for file in files:
+            if file.lower().endswith(('.mp3', '.wav', '.flac', '.aac', '.ogg')):
+                path = os.path.join(root, file)
+                size = os.path.getsize(path)
+                songs.append(OfflineSong(file, path, size))
+    return songs
+
+
+def insertion_sort_by_size(songs):
+    for i in range(1, len(songs)):
+        key = songs[i]
+        j = i - 1
+        while j >= 0 and songs[j].size > key.size:
+            songs[j + 1] = songs[j]
+            j -= 1
+        songs[j + 1] = key
+    return songs
+
+
+def linear_search_title(songs, keyword):
+    return [song for song in songs if keyword.lower() in song.title.lower()]
+
+
+def binary_search_title(songs, target):
+    # Songs must be sorted by title
+    left, right = 0, len(songs) - 1
+    while left <= right:
+        mid = (left + right) // 2
+        if songs[mid].title == target:
+            return mid
+        elif songs[mid].title < target:
+            left = mid + 1
+        else:
+            right = mid - 1
+    return -1
+
+
+def play_offline_song(song_path):
+    safe_path = shlex.quote(song_path)  # Ensure safe handling of paths
+    os.system(f"mpv --no-video {safe_path}")
+
+def play_offline_music():
+    console = Console()
+    music_dir = get_music_directory()
+    if not os.path.isdir(music_dir):
+        console.print("[bold red]Music directory not found![/bold red]")
+        return
+
+    # 1. Scan directory (DFS)
+    songs = scan_music_folder(music_dir)
+    if not songs:
+        console.print("[bold red]No music files found in directory![/bold red]")
+        return
+
+    # 2. Sort by file size (Insertion Sort)
+    songs = insertion_sort_by_size(songs)
+    console.print(f"[bold green]Found {len(songs)} songs in '{music_dir}'[/bold green]")
+
+    # 3. Heap: Top 3 largest files
+    top3_largest = heapq.nlargest(3, songs, key=lambda s: s.size)
+
+    # 4. Linear search: Find by keyword
+    keyword = Prompt.ask("Enter keyword to search in song titles (leave empty to skip)", default="")
+    found = songs
+    if keyword.strip():
+        found = linear_search_title(songs, keyword)
+        if not found:
+            console.print("[bold red]No songs found with that keyword![/bold red]")
+            return
+    # 5. Binary search: Exact title (optional)
+    found_sorted = sorted(found, key=lambda s: s.title)
+    if Prompt.ask("Do you want to search for a song by exact title? (y/n)", default="n") == "y":
+        target = Prompt.ask("Enter the exact song title")
+        idx = binary_search_title(found_sorted, target)
+        if idx != -1:
+            selected_song = found_sorted[idx]
+            console.print(f"[bold blue]Now Playing (Binary Search):[/bold blue] {selected_song.title}")
+            play_offline_song(selected_song.path)
+            return
+        else:
+            console.print("[bold red]Song not found by binary search.[/bold red]")
+
+    # 6. Display results in a table
+    table = Table(title="Offline Songs (Sorted by Size)")
+    table.add_column("Index", justify="center", style="cyan")
+    table.add_column("Title", style="magenta")
+    table.add_column("Size (MB)", style="green")
+    for i, song in enumerate(found):
+        mark = ""
+        if song in top3_largest:
+            mark = " [Top 3 Largest]"
+        table.add_row(str(i + 1), song.title + mark, f"{song.size/1024/1024:.2f}")
+    console.print(table)
+
+    # 7. User selects song to play
+    choice = Prompt.ask("Enter the index of the song to play", default="1")
+    try:
+        choice = int(choice) - 1
+        if choice < 0 or choice >= len(found):
+            raise ValueError
+    except ValueError:
+        console.print("[bold red]Invalid choice! Playing first song.[/bold red]")
+        choice = 0
+
+    selected_song = found[choice]
+    console.print(f"[bold blue]Now Playing:[/bold blue] {selected_song.title}")
+    play_offline_song(selected_song.path)
 
 def install_mpv():
     system = platform.system()
