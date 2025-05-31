@@ -2,5 +2,6 @@ env/
 build/
 dist/
 *.egg-info
-Todo
+Todo.md
 __pycache__/
+.env
