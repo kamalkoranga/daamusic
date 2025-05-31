@@ -4,7 +4,7 @@ from rich.console import Console
 from rich.prompt import Prompt
 from daa_music.utils import check_mpv, search_and_play, play_offline_music, get_current_song,song_queue, get_music_directory, play_history, show_top_played, stop_song_queue
 
-VERSION = "0.0.4"
+VERSION = "0.0.5"
 
 
 def main():
