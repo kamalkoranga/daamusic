@@ -4,7 +4,7 @@ from rich.console import Console
 from rich.prompt import Prompt
 from daa_music.utils import check_mpv, search_and_play, play_offline_music, get_current_song,song_queue, get_music_directory, play_history, show_top_played, stop_song_queue
 
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 
 
 def main():
@@ -61,12 +61,12 @@ def main():
                             console.print(f"{idx}. {getattr(song, 'title', str(song))}")
                 else:
                     console.print("[bold yellow]Queue is empty.[/bold yellow]")
-            
+
             else:
                 stop_song_queue()
                 console.print("[bold yellow]Exiting...[/bold yellow]")
                 break
-    
+
     except KeyboardInterrupt:
         console.print("\n[bold yellow]Exiting...[/bold yellow]")
 
