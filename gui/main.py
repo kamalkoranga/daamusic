@@ -233,14 +233,24 @@ class MusicPlayerApp:
             self.root.after(1000, self.check_song_end)
     
     def play_prev(self):
-        """Play previous song"""
+        """Play previous song (wrap to last if at first)"""
+        if not self.song_files:
+            return
         if self.current_song_index > 0:
-            self.play_song(self.song_files[self.current_song_index - 1], self.current_song_index - 1)
+            new_index = self.current_song_index - 1
+        else:
+            new_index = len(self.song_files) - 1  # Wrap to last
+        self.play_song(self.song_files[new_index], new_index)
 
     def play_next(self):
-        """Play next song"""
+        """Play next song (wrap to first if at last)"""
+        if not self.song_files:
+            return
         if self.current_song_index < len(self.song_files) - 1:
-            self.play_song(self.song_files[self.current_song_index + 1], self.current_song_index + 1)
+            new_index = self.current_song_index + 1
+        else:
+            new_index = 0  # Wrap to first
+        self.play_song(self.song_files[new_index], new_index)
 
     def toggle_play_pause(self):
         """Toggle play/pause using MPV IPC (or SIGSTOP/SIGCONT as fallback)"""
