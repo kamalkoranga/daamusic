@@ -69,24 +69,30 @@ class MusicPlayerApp:
             width=120
         )
         self.change_folder_btn.pack(side="right")
+
+        # --- Tabs for Offline and Online ---
+        self.tabview = ctk.CTkTabview(self.main_frame, height=500)
+        self.tabview.pack(fill="both", expand=True, padx=10, pady=5)
+        self.tabview.add("Offline")
+        self.tabview.add("Online")
         
-        # Search box
+        # --- OFFLINE TAB CONTENT ---
+        offline_tab = self.tabview.tab("Offline")
+        # Move your search box, song list, and controls to the offline tab
         self.search_entry = ctk.CTkEntry(
-            self.main_frame,
+            offline_tab,
             placeholder_text="Search songs..."
         )
         self.search_entry.pack(fill="x", padx=10, pady=5)
         self.search_entry.bind("<KeyRelease>", self.filter_songs)
         
-        # Song list
         self.song_listbox = ctk.CTkScrollableFrame(
-            self.main_frame,
-            height=400
+            offline_tab,
+            height=400,
         )
         self.song_listbox.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # --- Add control buttons ---
-        self.controls_frame = ctk.CTkFrame(self.main_frame)
+        self.controls_frame = ctk.CTkFrame(offline_tab)
         self.controls_frame.pack(fill="x", padx=10, pady=10)
 
         self.prev_btn = ctk.CTkButton(self.controls_frame, text="⏮ Prev", width=80, command=self.play_prev)
@@ -100,6 +106,26 @@ class MusicPlayerApp:
 
         self.repeat_btn = ctk.CTkButton(self.controls_frame, text="🔁 Repeat Off", width=100, command=self.toggle_repeat)
         self.repeat_btn.pack(side="left", padx=5)
+
+        # --- ONLINE TAB CONTENT ---
+        online_tab = self.tabview.tab("Online")
+        self.online_search_frame = ctk.CTkFrame(online_tab)
+        self.online_search_frame.pack(fill="x", padx=10, pady=10)
+
+        self.online_search_entry = ctk.CTkEntry(
+            self.online_search_frame,
+            placeholder_text="Search online music..."
+        )
+        self.online_search_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
+
+        self.online_search_btn = ctk.CTkButton(
+            self.online_search_frame,
+            text="🔍",
+            width=40,
+            # command=self.search_online_music  # You can define this method later
+        )
+        self.online_search_btn.pack(side="left")
+
     
     def load_music_folder(self):
         """Load music folder from config or ask user"""
