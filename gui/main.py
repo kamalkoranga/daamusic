@@ -24,7 +24,10 @@ class MusicPlayerApp:
         self.mpv_process = None
         self.current_song_index = -1
         self.song_buttons = []
+        self.online_song_buttons = []
         self.repeat_mode = False
+        self.current_online_song_index = -1
+        self.online_song_list = []
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
@@ -125,8 +128,24 @@ class MusicPlayerApp:
         self.online_search_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
         # Add this for results
-        self.online_results_frame = ctk.CTkFrame(online_tab)
+        self.online_results_frame = ctk.CTkScrollableFrame(online_tab)
         self.online_results_frame.pack(fill="both", expand=True, padx=10, pady=5)
+        
+        # Online controls frame
+        self.online_controls_frame = ctk.CTkFrame(online_tab)
+        self.online_controls_frame.pack(fill="x", padx=10, pady=10)
+
+        self.online_prev_btn = ctk.CTkButton(self.online_controls_frame, text="⏮ Prev", width=80, command=self.online_play_prev)
+        self.online_prev_btn.pack(side="left", padx=5)
+
+        self.online_play_pause_btn = ctk.CTkButton(self.online_controls_frame, text="⏸ Pause", width=80, command=self.toggle_play_pause)
+        self.online_play_pause_btn.pack(side="left", padx=5)
+
+        self.online_next_btn = ctk.CTkButton(self.online_controls_frame, text="⏭ Next", width=80, command=self.online_play_next)
+        self.online_next_btn.pack(side="left", padx=5)
+
+        self.online_repeat_btn = ctk.CTkButton(self.online_controls_frame, text="🔁 Repeat Off", width=100, command=self.toggle_repeat)
+        self.online_repeat_btn.pack(side="left", padx=5)
 
     def debounced_online_search(self, event=None):
         if self.online_search_after_id is not None:
@@ -144,6 +163,9 @@ class MusicPlayerApp:
         # Clear previous results
         for widget in self.online_results_frame.winfo_children():
             widget.destroy()
+        
+        self.online_song_buttons = []
+        self.online_song_list = []
         
         console = Console()
         console.print(f"[bold green]Searching for:[/bold green] {search_text}")
@@ -176,8 +198,11 @@ class MusicPlayerApp:
                 console.print("[bold red]No results found.[/bold red]")
                 return
         
+        # Store the online songs
+        self.online_song_list = results["entries"]
+        
         # Create buttons for each song
-        for index, song in enumerate(results["entries"]):
+        for index, song in enumerate(self.online_song_list):
             song_name = song.get("title", "Unknown Title")
             btn = ctk.CTkButton(
                 self.online_results_frame,
@@ -188,8 +213,70 @@ class MusicPlayerApp:
                 hover_color=("#3a7ebf", "#1f538d")
             )
             btn.pack(fill="x", pady=2)
-            self.song_buttons.append(btn)
+            self.online_song_buttons.append(btn)
 
+    def play_online_song(self, song_info, index):
+        """Play a song using MPV"""
+        song_url = song_info.get("url")
+        if not song_url:
+            print(f"Error: No URL found for song {song_info.get('title', 'Unknown')}")
+            return
+        
+        # Stop current song if playing
+        if self.mpv_process and self.mpv_process.poll() is None:
+            try:
+                self.mpv_process.send_signal(signal.SIGCONT)
+            except Exception:
+                pass
+            self.mpv_process.terminate()
+            try:
+                self.mpv_process.wait(timeout=2)
+            except Exception:
+                self.mpv_process.kill()
+        self._paused = False
+        self.play_pause_btn.configure(text="⏸ Pause")
+        self.online_play_pause_btn.configure(text="⏸ Pause")
+
+        # Start new song (stream from YouTube)
+        mpv_args = ["mpv", "--no-video"]
+        if self.repeat_mode:
+            mpv_args.append("--loop")
+        mpv_args.append(song_url)
+        self.mpv_process = subprocess.Popen(
+            mpv_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        
+        # Update UI
+        self.current_online_song_index = index
+        for i, btn in enumerate(self.online_song_buttons):
+            btn.configure(fg_color="transparent")
+        if index < len(self.online_song_buttons):
+            self.online_song_buttons[index].configure(fg_color="#1f538d")
+        
+        print(f"Playing online song: {song_url} index: {index}")
+        self.root.after(1000, self.check_song_end)
+
+    def online_play_prev(self):
+        """Play previous online song (wrap to last if at first)"""
+        if not self.online_song_list:
+            return
+        if self.current_online_song_index > 0:
+            new_index = self.current_online_song_index - 1
+        else:
+            new_index = len(self.online_song_list) - 1  # Wrap to last
+        self.play_online_song(self.online_song_list[new_index], new_index)
+
+    def online_play_next(self):
+        """Play next online song (wrap to first if at last)"""
+        if not self.online_song_list:
+            return
+        if self.current_online_song_index < len(self.online_song_list) - 1:
+            new_index = self.current_online_song_index + 1
+        else:
+            new_index = 0  # Wrap to first
+        self.play_online_song(self.online_song_list[new_index], new_index)
 
     def load_music_folder(self):
         """Load music folder from config or ask user"""
@@ -277,8 +364,10 @@ class MusicPlayerApp:
         self.repeat_mode = not self.repeat_mode
         if self.repeat_mode:
             self.repeat_btn.configure(text="🔁 Repeat On")
+            self.online_repeat_btn.configure(text="🔁 Repeat On")
         else:
             self.repeat_btn.configure(text="🔁 Repeat Off")
+            self.online_repeat_btn.configure(text="🔁 Repeat Off")
 
     def play_song(self, song_path, index=None):
         """Play a song using MPV"""
@@ -295,6 +384,7 @@ class MusicPlayerApp:
                 self.mpv_process.kill()
         self._paused = False
         self.play_pause_btn.configure(text="⏸ Pause")
+        self.online_play_pause_btn.configure(text="⏸ Pause")
         # Start new song
         mpv_args = ["mpv", "--no-terminal"]
         if self.repeat_mode:
@@ -314,45 +404,16 @@ class MusicPlayerApp:
         print(f"Playing song: {song_path} index: {index}")
         self.root.after(1000, self.check_song_end)
     
-    def play_online_song(self, song_info, index):
-        """Play a song using MPV"""
-        song_url = song_info.get("url")
-        if not song_url:
-            print(f"Error: No URL found for song {song_info.get('title', 'Unknown')}")
-            return
-        
-        # Stop current song if playing
-        if self.mpv_process and self.mpv_process.poll() is None:
-            try:
-                self.mpv_process.send_signal(signal.SIGCONT)
-            except Exception:
-                pass
-            self.mpv_process.terminate()
-            try:
-                self.mpv_process.wait(timeout=2)
-            except Exception:
-                self.mpv_process.kill()
-        self._paused = False
-        self.play_pause_btn.configure(text="⏸ Pause")
-
-        # Start new song (stream from YouTube)
-        mpv_args = ["mpv", "--no-video"]
-        if self.repeat_mode:
-            mpv_args.append("--loop")
-        mpv_args.append(song_url)
-        self.mpv_process = subprocess.Popen(
-            mpv_args,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        print(f"Playing online song: {song_url} index: {index}")
-        self.root.after(1000, self.check_song_end)
-
     def check_song_end(self):
         """Check if the song has ended and play next if repeat is off"""
         if self.mpv_process and self.mpv_process.poll() is not None:
             if not self.repeat_mode:
-                self.play_next()
+                # Determine which tab is active to play next song accordingly
+                current_tab = self.tabview.get()
+                if current_tab == "Offline":
+                    self.play_next()
+                elif current_tab == "Online":
+                    self.online_play_next()
         else:
             self.root.after(1000, self.check_song_end)
     
@@ -386,6 +447,7 @@ class MusicPlayerApp:
                 except Exception:
                     pass
                 self.play_pause_btn.configure(text="⏸ Pause")
+                self.online_play_pause_btn.configure(text="⏸ Pause")
                 self._paused = False
             else:
                 # Pause
@@ -394,6 +456,7 @@ class MusicPlayerApp:
                 except Exception:
                     pass
                 self.play_pause_btn.configure(text="▶ Play")
+                self.online_play_pause_btn.configure(text="▶ Play")
                 self._paused = True
     
     def on_close(self):
