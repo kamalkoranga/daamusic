@@ -5,6 +5,7 @@ from tkinter import filedialog
 import subprocess
 import json
 import signal
+import threading
 from yt_dlp import YoutubeDL
 from rich.console import Console
 from rich.table import Table
@@ -150,70 +151,69 @@ class MusicPlayerApp:
     def debounced_online_search(self, event=None):
         if self.online_search_after_id is not None:
             self.root.after_cancel(self.online_search_after_id)
+        
         self.online_search_after_id = self.root.after(
-            600, lambda: asyncio.run(self.search_online_music())
+            700, self.threaded_search_online_music
         )
 
-    async def search_online_music(self, event=None):
-        """Search online music based on user input"""
+    def threaded_search_online_music(self):
+        # Run the blocking search in a thread
+        threading.Thread(target=self.search_online_music_thread, daemon=True).start()
+
+    def search_online_music_thread(self):
         search_text = self.online_search_entry.get().strip()
         if not search_text:
             return
-        
-        # Clear previous results
-        for widget in self.online_results_frame.winfo_children():
-            widget.destroy()
-        
+
+        # Clear previous results (must be done in main thread)
+        self.root.after(0, lambda: [w.destroy() for w in self.online_results_frame.winfo_children()])
         self.online_song_buttons = []
         self.online_song_list = []
-        
-        console = Console()
-        console.print(f"[bold green]Searching for:[/bold green] {search_text}")
 
         ydl_opts = {
-            "format": "bestaudio[ext=m4a]/bestaudio",  # Ensure best audio only
+            "format": "bestaudio[ext=m4a]/bestaudio",
             "quiet": True,
             "noplaylist": True,
             "geo_bypass": True,
-            "default_search": "ytsearch5",  # Fetch 5 results to speed up search
-            "nocheckcertificate": True,  # Skip SSL certificate checks
-            "extractor_retries": 0,  # No retries for faster response
-            "noprogress": True,  # Disable progress bar to speed up processing
-            "ignoreerrors": True,  # Skip errors instead of retrying
-            "extract_flat": True,  # Faster metadata extraction
-            "skip_download": True,  # Do not process unnecessary metadata
+            "default_search": "ytsearch5",
+            "nocheckcertificate": True,
+            "extractor_retries": 0,
+            "noprogress": True,
+            "ignoreerrors": True,
+            "extract_flat": True,
+            "skip_download": True,
             "http_headers": {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
                 "Referer": "https://www.youtube.com/",
             },
         }
 
-        loop = asyncio.get_event_loop()
         with YoutubeDL(ydl_opts) as ydl:
-            results = await loop.run_in_executor(
-                None, lambda: ydl.extract_info(f"ytsearch5:{search_text}", download=False)
-            )
+            try:
+                results = ydl.extract_info(f"ytsearch5:{search_text}", download=False)
+            except Exception as e:
+                results = None
 
-            if not results or "entries" not in results or not results["entries"]:
-                console.print("[bold red]No results found.[/bold red]")
-                return
-        
-        # Store the online songs
+        if not results or "entries" not in results or not results["entries"]:
+            return
+
         self.online_song_list = results["entries"]
-        
-        # Create buttons for each song
-        for index, song in enumerate(self.online_song_list):
-            song_name = song.get("title", "Unknown Title")
-            btn = ctk.CTkButton(
-                self.online_results_frame,
-                text=song_name,
-                command=lambda s=song, i=index: self.play_online_song(s, i),
-                anchor="w",
-                fg_color="transparent",
-                hover_color=("#3a7ebf", "#1f538d")
-            )
-            btn.pack(fill="x", pady=2)
-            self.online_song_buttons.append(btn)
+
+        # Update GUI in main thread
+        def add_buttons():
+            for index, song in enumerate(self.online_song_list):
+                song_name = song.get("title", "Unknown Title")
+                btn = ctk.CTkButton(
+                    self.online_results_frame,
+                    text=song_name,
+                    command=lambda s=song, i=index: self.play_online_song(s, i),
+                    anchor="w",
+                    fg_color="transparent",
+                    hover_color=("#3a7ebf", "#1f538d")
+                )
+                btn.pack(fill="x", pady=2)
+                self.online_song_buttons.append(btn)
+        self.root.after(0, add_buttons)
 
     def play_online_song(self, song_info, index):
         """Play a song using MPV"""
