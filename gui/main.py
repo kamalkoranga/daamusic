@@ -1,10 +1,13 @@
+import asyncio
 import os
 import customtkinter as ctk
 from tkinter import filedialog
 import subprocess
 import json
 import signal
-import time
+from yt_dlp import YoutubeDL
+from rich.console import Console
+from rich.table import Table
 
 class MusicPlayerApp:
     def __init__(self):
@@ -24,6 +27,8 @@ class MusicPlayerApp:
         self.repeat_mode = False
 
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        self.online_search_after_id = None
         
         # Configuration file
         self.config_file = "music_player_config.json"
@@ -116,17 +121,76 @@ class MusicPlayerApp:
             self.online_search_frame,
             placeholder_text="Search online music..."
         )
+        self.online_search_entry.bind("<KeyRelease>", self.debounced_online_search)
         self.online_search_entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
-        self.online_search_btn = ctk.CTkButton(
-            self.online_search_frame,
-            text="🔍",
-            width=40,
-            # command=self.search_online_music  # You can define this method later
-        )
-        self.online_search_btn.pack(side="left")
+        # Add this for results
+        self.online_results_frame = ctk.CTkFrame(online_tab)
+        self.online_results_frame.pack(fill="both", expand=True, padx=10, pady=5)
 
-    
+    def debounced_online_search(self, event=None):
+        if self.online_search_after_id is not None:
+            self.root.after_cancel(self.online_search_after_id)
+        self.online_search_after_id = self.root.after(
+            600, lambda: asyncio.run(self.search_online_music())
+        )
+
+    async def search_online_music(self, event=None):
+        """Search online music based on user input"""
+        search_text = self.online_search_entry.get().strip()
+        if not search_text:
+            return
+        
+        # Clear previous results
+        for widget in self.online_results_frame.winfo_children():
+            widget.destroy()
+        
+        console = Console()
+        console.print(f"[bold green]Searching for:[/bold green] {search_text}")
+
+        ydl_opts = {
+            "format": "bestaudio[ext=m4a]/bestaudio",  # Ensure best audio only
+            "quiet": True,
+            "noplaylist": True,
+            "geo_bypass": True,
+            "default_search": "ytsearch5",  # Fetch 5 results to speed up search
+            "nocheckcertificate": True,  # Skip SSL certificate checks
+            "extractor_retries": 0,  # No retries for faster response
+            "noprogress": True,  # Disable progress bar to speed up processing
+            "ignoreerrors": True,  # Skip errors instead of retrying
+            "extract_flat": True,  # Faster metadata extraction
+            "skip_download": True,  # Do not process unnecessary metadata
+            "http_headers": {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+                "Referer": "https://www.youtube.com/",
+            },
+        }
+
+        loop = asyncio.get_event_loop()
+        with YoutubeDL(ydl_opts) as ydl:
+            results = await loop.run_in_executor(
+                None, lambda: ydl.extract_info(f"ytsearch5:{search_text}", download=False)
+            )
+
+            if not results or "entries" not in results or not results["entries"]:
+                console.print("[bold red]No results found.[/bold red]")
+                return
+        
+        # Create buttons for each song
+        for index, song in enumerate(results["entries"]):
+            song_name = song.get("title", "Unknown Title")
+            btn = ctk.CTkButton(
+                self.online_results_frame,
+                text=song_name,
+                command=lambda s=song, i=index: self.play_online_song(s, i),
+                anchor="w",
+                fg_color="transparent",
+                hover_color=("#3a7ebf", "#1f538d")
+            )
+            btn.pack(fill="x", pady=2)
+            self.song_buttons.append(btn)
+
+
     def load_music_folder(self):
         """Load music folder from config or ask user"""
         try:
@@ -248,6 +312,40 @@ class MusicPlayerApp:
             self.song_buttons[index].configure(fg_color="#1f538d", text="▶ " + os.path.basename(song_path))
             self.current_song_index = index
         print(f"Playing song: {song_path} index: {index}")
+        self.root.after(1000, self.check_song_end)
+    
+    def play_online_song(self, song_info, index):
+        """Play a song using MPV"""
+        song_url = song_info.get("url")
+        if not song_url:
+            print(f"Error: No URL found for song {song_info.get('title', 'Unknown')}")
+            return
+        
+        # Stop current song if playing
+        if self.mpv_process and self.mpv_process.poll() is None:
+            try:
+                self.mpv_process.send_signal(signal.SIGCONT)
+            except Exception:
+                pass
+            self.mpv_process.terminate()
+            try:
+                self.mpv_process.wait(timeout=2)
+            except Exception:
+                self.mpv_process.kill()
+        self._paused = False
+        self.play_pause_btn.configure(text="⏸ Pause")
+
+        # Start new song (stream from YouTube)
+        mpv_args = ["mpv", "--no-video"]
+        if self.repeat_mode:
+            mpv_args.append("--loop")
+        mpv_args.append(song_url)
+        self.mpv_process = subprocess.Popen(
+            mpv_args,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        print(f"Playing online song: {song_url} index: {index}")
         self.root.after(1000, self.check_song_end)
 
     def check_song_end(self):
