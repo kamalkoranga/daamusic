@@ -8,7 +8,7 @@
 <p align="center">
   <a href="https://pypi.org/project/daa_music/"><img src="https://img.shields.io/pypi/v/daa_music.svg?color=blue" alt="PyPI version"></a>
   <a href="https://github.com/kamalkoranga/daamusic/blob/main/LICENSE"><img src="https://img.shields.io/github/license/kamalkoranga/daamusic.svg" alt="License"></a>
-  <a href="https://github.com/kamalkoranga/daamusic/stargazers"><img src="https://img.shields.io/github/stars/kamalkoranga/daamusic.svg?style=social"></a>
+<!--   <a href="https://github.com/kamalkoranga/daamusic/stargazers"><img src="https://img.shields.io/github/stars/kamalkoranga/daamusic.svg?style=social"></a> -->
   <img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+">
 </p>
 
